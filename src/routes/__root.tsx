@@ -12,6 +12,7 @@ import appCss from "../styles.css?url";
 import { Navbar } from "@/components/site/Navbar";
 import { Footer } from "@/components/site/Footer";
 import { FloatingActions } from "@/components/site/FloatingActions";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -123,6 +124,7 @@ function RootComponent() {
         </main>
         <Footer />
         <FloatingActions />
+        <Toaster />
       </div>
     </QueryClientProvider>
   );
