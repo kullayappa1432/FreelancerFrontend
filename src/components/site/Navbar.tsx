@@ -9,12 +9,18 @@ const links = [
   { to: "/services", label: "Services" },
   { to: "/projects", label: "Projects" },
   { to: "/courses", label: "Courses" },
+  { to: "/placements", label: "Placements" },
   { to: "/contact", label: "Contact" },
 ] as const;
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
   const path = useRouterState({ select: (s) => s.location.pathname });
+
+  // Don't show navbar on admin pages (admin dashboard has its own header)
+  if (path.startsWith('/admin/dashboard')) {
+    return null;
+  }
 
   return (
     <header className="fixed top-0 inset-x-0 z-50">
@@ -51,10 +57,14 @@ export function Navbar() {
           </ul>
 
           <div className="hidden lg:flex items-center gap-2">
-            <Button variant="ghost" size="sm">Login</Button>
-            <Button size="sm" className="bg-gradient-primary hover:opacity-90 shadow-glow">
-              Get Started
-            </Button>
+            <Link to="/admin/login">
+              <Button variant="ghost" size="sm">Admin</Button>
+            </Link>
+            <Link to="/courses">
+              <Button size="sm" className="bg-gradient-primary hover:opacity-90 shadow-glow">
+                Get Started
+              </Button>
+            </Link>
           </div>
 
           <button
@@ -82,8 +92,12 @@ export function Navbar() {
               ))}
             </ul>
             <div className="flex gap-2 mt-3">
-              <Button variant="ghost" size="sm" className="flex-1">Login</Button>
-              <Button size="sm" className="flex-1 bg-gradient-primary">Get Started</Button>
+              <Link to="/admin/login" className="flex-1">
+                <Button variant="ghost" size="sm" className="w-full">Admin</Button>
+              </Link>
+              <Link to="/courses" className="flex-1">
+                <Button size="sm" className="w-full bg-gradient-primary">Get Started</Button>
+              </Link>
             </div>
           </div>
         )}

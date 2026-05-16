@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef } from "react";
 import { Mail, Phone, MapPin, MessageCircle, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { useSubmitContactMutation } from "@/hooks/useContactQuery";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -18,16 +18,24 @@ export const Route = createFileRoute("/contact")({
 });
 
 function ContactPage() {
-  const [sending, setSending] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { mutate: submitContact, isPending } = useSubmitContactMutation();
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      toast.success("Message sent! We'll reply within 24 hours.");
-      (e.target as HTMLFormElement).reset();
-    }, 800);
+    const formData = new FormData(e.currentTarget);
+    
+    submitContact({
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      phone: (formData.get('phone') as string) || undefined,
+      subject: formData.get('subject') as string,
+      message: formData.get('message') as string,
+    }, {
+      onSuccess: () => {
+        formRef.current?.reset();
+      },
+    });
   };
 
   return (
@@ -45,14 +53,14 @@ function ContactPage() {
           <div className="lg:col-span-2">
             <Card className="glass gradient-border bg-transparent border-0 p-6 sm:p-8">
               <h2 className="text-xl font-semibold">Send us a message</h2>
-              <form onSubmit={onSubmit} className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input required placeholder="Your name" maxLength={100} className="bg-white/5 border-white/10" />
-                <Input required type="email" placeholder="Email address" maxLength={255} className="bg-white/5 border-white/10" />
-                <Input placeholder="Phone (optional)" maxLength={20} className="sm:col-span-2 bg-white/5 border-white/10" />
-                <Input required placeholder="Subject" maxLength={150} className="sm:col-span-2 bg-white/5 border-white/10" />
-                <Textarea required placeholder="Tell us about your project or question..." maxLength={1000} rows={5} className="sm:col-span-2 bg-white/5 border-white/10" />
-                <Button disabled={sending} type="submit" size="lg" className="sm:col-span-2 bg-gradient-primary shadow-glow">
-                  {sending ? "Sending..." : <><Send className="w-4 h-4 mr-2" /> Send message</>}
+              <form ref={formRef} onSubmit={onSubmit} className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input required name="name" placeholder="Your name" maxLength={100} className="bg-white/5 border-white/10" />
+                <Input required name="email" type="email" placeholder="Email address" maxLength={255} className="bg-white/5 border-white/10" />
+                <Input name="phone" placeholder="Phone (optional)" maxLength={20} className="sm:col-span-2 bg-white/5 border-white/10" />
+                <Input required name="subject" placeholder="Subject" maxLength={150} className="sm:col-span-2 bg-white/5 border-white/10" />
+                <Textarea required name="message" placeholder="Tell us about your project or question..." maxLength={1000} rows={5} className="sm:col-span-2 bg-white/5 border-white/10" />
+                <Button disabled={isPending} type="submit" size="lg" className="sm:col-span-2 bg-gradient-primary shadow-glow">
+                  {isPending ? "Sending..." : <><Send className="w-4 h-4 mr-2" /> Send message</>}
                 </Button>
               </form>
             </Card>

@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight, Sparkles, GraduationCap, Code2, Briefcase, Database,
   Brain, Cloud, FileText, Rocket, Star, CheckCircle2, ChevronDown,
+  Users, Award, TrendingUp, Linkedin, Github, Twitter, Calendar,
 } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,9 @@ import { SectionHeading } from "@/components/site/SectionHeading";
 import {
   Accordion, AccordionContent, AccordionItem, AccordionTrigger,
 } from "@/components/ui/accordion";
+import { teamService } from "@/services/team.service";
+import { blogsService } from "@/services/blogs.service";
+import { placementsService } from "@/services/placements.service";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -76,6 +81,31 @@ const faqs = [
 ];
 
 function HomePage() {
+  // Fetch featured team members
+  const { data: teamData } = useQuery({
+    queryKey: ['featured-team'],
+    queryFn: () => teamService.getFeaturedTeamMembers(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch latest blogs
+  const { data: blogsData } = useQuery({
+    queryKey: ['latest-blogs'],
+    queryFn: () => blogsService.getPublishedBlogs(1, 3),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch featured placements
+  const { data: placementsData } = useQuery({
+    queryKey: ['featured-placements'],
+    queryFn: () => placementsService.getFeatured(1, 3),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const featuredTeam = teamData || [];
+  const latestBlogs = blogsData?.data || [];
+  const featuredPlacements = placementsData?.data || [];
+
   return (
     <>
       {/* HERO */}
@@ -317,6 +347,234 @@ function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* PLACEMENTS */}
+      {featuredPlacements.length > 0 && (
+        <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-background to-primary/5">
+          <div className="mx-auto max-w-7xl">
+            <SectionHeading 
+              eyebrow="Success Stories" 
+              title="Our Students Are Thriving" 
+              subtitle="Real placements, real packages, real careers launched."
+            />
+            <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
+              {featuredPlacements.map((placement, i) => (
+                <motion.div
+                  key={placement.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                >
+                  <Card className="glass gradient-border bg-transparent border-0 p-6 h-full hover-lift group">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-14 h-14 rounded-full bg-gradient-primary grid place-items-center font-bold text-lg">
+                        {placement.studentName.charAt(0)}
+                      </div>
+                      <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
+                        <Award className="w-3 h-3 mr-1" />
+                        Featured
+                      </Badge>
+                    </div>
+                    <h3 className="font-semibold text-lg">{placement.studentName}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {placement.position} at {placement.companyName}
+                    </p>
+                    {placement.package && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        <span className="font-semibold text-primary">
+                          ₹{placement.package.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <p className="mt-4 text-sm text-muted-foreground line-clamp-3">
+                      {placement.testimonial}
+                    </p>
+                    {placement.course && (
+                      <Badge variant="secondary" className="mt-4 bg-white/5">
+                        {placement.course}
+                      </Badge>
+                    )}
+                    <Button 
+                      asChild 
+                      variant="ghost" 
+                      size="sm" 
+                      className="mt-4 w-full group-hover:bg-primary/10"
+                    >
+                      <Link to={`/placements/${placement.slug}`}>
+                        Read Full Story <ArrowRight className="w-3 h-3 ml-1" />
+                      </Link>
+                    </Button>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+            <div className="mt-10 text-center">
+              <Button asChild size="lg" variant="outline" className="glass border-white/20">
+                <Link to="/placements">
+                  View All Success Stories <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* TEAM */}
+      {featuredTeam.length > 0 && (
+        <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <SectionHeading 
+              eyebrow="Meet The Team" 
+              title="Experts Who Guide You" 
+              subtitle="Industry professionals dedicated to your success."
+            />
+            <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredTeam.slice(0, 3).map((member, i) => (
+                <motion.div
+                  key={member.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                >
+                  <Card className="glass gradient-border bg-transparent border-0 p-6 text-center hover-lift group">
+                    <div className="w-24 h-24 mx-auto rounded-full bg-gradient-primary grid place-items-center font-bold text-3xl mb-4 group-hover:scale-110 transition-smooth">
+                      {member.name.charAt(0)}
+                    </div>
+                    <h3 className="font-semibold text-lg">{member.name}</h3>
+                    <p className="text-sm text-primary mt-1">{member.role}</p>
+                    {member.experience && (
+                      <p className="text-xs text-muted-foreground mt-2">{member.experience}</p>
+                    )}
+                    <p className="mt-4 text-sm text-muted-foreground line-clamp-3">
+                      {member.bio}
+                    </p>
+                    {member.skills && member.skills.length > 0 && (
+                      <div className="mt-4 flex flex-wrap justify-center gap-1.5">
+                        {member.skills.slice(0, 3).map((skill) => (
+                          <Badge key={skill} variant="secondary" className="bg-white/5 text-xs">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-4 flex justify-center gap-2">
+                      {member.linkedin && (
+                        <a 
+                          href={member.linkedin} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="w-8 h-8 rounded-full glass grid place-items-center hover:bg-primary/20 transition-smooth"
+                        >
+                          <Linkedin className="w-4 h-4" />
+                        </a>
+                      )}
+                      {member.github && (
+                        <a 
+                          href={member.github} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="w-8 h-8 rounded-full glass grid place-items-center hover:bg-primary/20 transition-smooth"
+                        >
+                          <Github className="w-4 h-4" />
+                        </a>
+                      )}
+                      {member.twitter && (
+                        <a 
+                          href={member.twitter} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="w-8 h-8 rounded-full glass grid place-items-center hover:bg-primary/20 transition-smooth"
+                        >
+                          <Twitter className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* BLOG */}
+      {latestBlogs.length > 0 && (
+        <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-primary/5 to-background">
+          <div className="mx-auto max-w-7xl">
+            <SectionHeading 
+              eyebrow="From The Blog" 
+              title="Latest Insights & Updates" 
+              subtitle="Tips, tutorials, and industry insights to keep you ahead."
+            />
+            <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
+              {latestBlogs.map((blog, i) => (
+                <motion.div
+                  key={blog.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                >
+                  <Card className="glass gradient-border bg-transparent border-0 overflow-hidden hover-lift group h-full flex flex-col">
+                    <div className="aspect-video bg-gradient-to-br from-primary/30 via-accent/20 to-background relative overflow-hidden">
+                      <div className="absolute inset-0 grid-pattern opacity-50" />
+                      <div className="absolute inset-0 grid place-items-center">
+                        <FileText className="w-16 h-16 text-primary/60 group-hover:scale-110 transition-smooth" />
+                      </div>
+                    </div>
+                    <div className="p-6 flex-1 flex flex-col">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
+                        <Badge variant="secondary" className="bg-white/5">
+                          {blog.category}
+                        </Badge>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(blog.createdAt).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </span>
+                      </div>
+                      <h3 className="font-semibold text-lg line-clamp-2 mb-2">
+                        {blog.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground line-clamp-3 mb-4 flex-1">
+                        {blog.excerpt}
+                      </p>
+                      <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                        <div className="text-xs text-muted-foreground">
+                          By {blog.authorName}
+                        </div>
+                        <Button 
+                          asChild 
+                          variant="ghost" 
+                          size="sm"
+                          className="group-hover:text-primary"
+                        >
+                          <Link to={`/blog/${blog.slug}`}>
+                            Read More <ArrowRight className="w-3 h-3 ml-1" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+            <div className="mt-10 text-center">
+              <Button asChild size="lg" variant="outline" className="glass border-white/20">
+                <Link to="/blog">
+                  View All Articles <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* PRICING */}
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
