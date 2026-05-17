@@ -81,11 +81,14 @@ const faqs = [
   { q: "Can I get the project source code?", a: "Absolutely. You receive full source code, documentation and deployment guides." },
 ];
 
+// Custom easing curve
+const smoothEase = [0.22, 1, 0.36, 1] as const;
+
 // Animation variants for smooth, subtle effects
 const fadeInUp = {
   hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
-};
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: smoothEase } }
+} as const;
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -93,22 +96,22 @@ const staggerContainer = {
     opacity: 1,
     transition: { staggerChildren: 0.08, delayChildren: 0.1 }
   }
-};
+} as const;
 
 const scaleIn = {
   hidden: { opacity: 0, scale: 0.9 },
-  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
-};
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: smoothEase } }
+} as const;
 
 const slideInLeft = {
   hidden: { opacity: 0, x: -40 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
-};
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: smoothEase } }
+} as const;
 
 const slideInRight = {
   hidden: { opacity: 0, x: 40 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
-};
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: smoothEase } }
+} as const;
 
 // Animated counter hook
 function useAnimatedCounter(end: number, duration: number = 2000, startWhenVisible: boolean = true) {
