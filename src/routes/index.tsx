@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring, useInView, useMotionValue, useMotionTemplate, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useEffect, useState } from "react";
 import {
   ArrowRight, Sparkles, GraduationCap, Code2, Briefcase, Database,
   Brain, Cloud, FileText, Rocket, Star, CheckCircle2, ChevronDown,
@@ -80,6 +81,172 @@ const faqs = [
   { q: "Can I get the project source code?", a: "Absolutely. You receive full source code, documentation and deployment guides." },
 ];
 
+// Animation variants for smooth, subtle effects
+const fadeInUp = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08, delayChildren: 0.1 }
+  }
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const slideInLeft = {
+  hidden: { opacity: 0, x: -40 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
+};
+
+const slideInRight = {
+  hidden: { opacity: 0, x: 40 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } }
+};
+
+// Animated counter hook
+function useAnimatedCounter(end: number, duration: number = 2000, startWhenVisible: boolean = true) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const hasStarted = useRef(false);
+
+  useEffect(() => {
+    if ((startWhenVisible && !isInView) || hasStarted.current) return;
+    hasStarted.current = true;
+    
+    let startTime: number;
+    const animate = (currentTime: number) => {
+      if (!startTime) startTime = currentTime;
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 4);
+      setCount(Math.floor(easeProgress * end));
+      if (progress < 1) requestAnimationFrame(animate);
+    };
+    requestAnimationFrame(animate);
+  }, [end, duration, isInView, startWhenVisible]);
+
+  return { count, ref };
+}
+
+// Magnetic button component
+function MagneticButton({ children, className, ...props }: React.ComponentProps<typeof Button>) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    x.set((e.clientX - centerX) * 0.15);
+    y.set((e.clientY - centerY) * 0.15);
+  };
+  
+  const handleMouseLeave = () => {
+    x.set(0);
+    y.set(0);
+  };
+  
+  const springConfig = { stiffness: 150, damping: 15 };
+  const springX = useSpring(x, springConfig);
+  const springY = useSpring(y, springConfig);
+
+  return (
+    <motion.div style={{ x: springX, y: springY }}>
+      <Button
+        ref={ref}
+        className={className}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        {...props}
+      >
+        {children}
+      </Button>
+    </motion.div>
+  );
+}
+
+// Spotlight card component
+function SpotlightCard({ children, className }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    mouseX.set(e.clientX - rect.left);
+    mouseY.set(e.clientY - rect.top);
+  };
+
+  const background = useMotionTemplate`radial-gradient(400px circle at ${mouseX}px ${mouseY}px, oklch(0.62 0.24 295 / 0.1), transparent 80%)`;
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      className={`relative ${className}`}
+    >
+      <motion.div
+        className="absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none"
+        style={{ background }}
+      />
+      {children}
+    </motion.div>
+  );
+}
+
+// Text reveal component
+function TextReveal({ children, className, delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-50px" });
+
+  return (
+    <div ref={ref} className={`overflow-hidden ${className}`}>
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={isInView ? { y: 0 } : { y: "100%" }}
+        transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+}
+
+// Animated stat component with counting effect
+function AnimatedStat({ value, suffix, label }: { value: number; suffix: string; label: string }) {
+  const { count, ref } = useAnimatedCounter(value, 2000);
+  
+  return (
+    <motion.div
+      ref={ref}
+      className="text-center"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.div 
+        className="text-4xl sm:text-5xl font-bold text-gradient-primary"
+        whileHover={{ scale: 1.05 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      >
+        {count}{suffix}
+      </motion.div>
+      <div className="mt-2 text-sm text-muted-foreground">{label}</div>
+    </motion.div>
+  );
+}
+
 function HomePage() {
   // Fetch featured team members
   const { data: teamData } = useQuery({
@@ -106,60 +273,102 @@ function HomePage() {
   const latestBlogs = blogsData?.data || [];
   const featuredPlacements = placementsData?.data || [];
 
+  // Parallax scroll effects for hero
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+  
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, 150]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95]);
+
   return (
     <>
       {/* HERO */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 -z-10">
+      <section ref={heroRef} className="relative overflow-hidden min-h-screen flex items-center">
+        <motion.div style={{ y: heroY }} className="absolute inset-0 -z-10">
           <img src={heroBg} alt="" className="w-full h-full object-cover opacity-30" />
           <div className="absolute inset-0 bg-gradient-hero" />
           <div className="absolute inset-0 grid-pattern opacity-40" />
-        </div>
+        </motion.div>
 
-        {/* Floating tech blobs */}
+        {/* Floating tech blobs with enhanced animation */}
         {techStack.slice(0, 6).map((t, i) => (
           <motion.div
             key={t}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4 + i * 0.1 }}
-            className={`hidden lg:block absolute glass px-4 py-2 rounded-xl text-xs font-mono animate-float`}
+            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ 
+              delay: 0.6 + i * 0.15, 
+              duration: 0.6,
+              ease: [0.22, 1, 0.36, 1]
+            }}
+            className={`hidden lg:block absolute glass px-4 py-2 rounded-xl text-xs font-mono`}
             style={{
               top: `${15 + (i * 11) % 60}%`,
               left: i % 2 === 0 ? `${4 + i * 3}%` : undefined,
               right: i % 2 !== 0 ? `${4 + i * 2}%` : undefined,
-              animationDelay: `${i * 0.6}s`,
             }}
           >
-            {t}
+            <motion.span
+              animate={{ y: [0, -8, 0] }}
+              transition={{ 
+                duration: 3 + i * 0.5, 
+                repeat: Infinity, 
+                ease: "easeInOut",
+                delay: i * 0.3
+              }}
+              className="block"
+            >
+              {t}
+            </motion.span>
           </motion.div>
         ))}
 
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36 text-center relative">
+        <motion.div 
+          style={{ opacity: heroOpacity, scale: heroScale }}
+          className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36 text-center relative"
+        >
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
             className="inline-flex items-center gap-2 glass px-4 py-1.5 rounded-full text-xs font-medium border border-primary/30"
           >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <motion.div
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+            </motion.div>
             #1 Real-Time IT Training & Internship Platform
           </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-6 text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight"
-          >
-            Transform Your Career With <br />
-            <span className="text-gradient-primary">Real-Time IT Skills</span>
-          </motion.h1>
+          <div className="mt-6 overflow-hidden">
+            <motion.h1
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.8, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+              className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight"
+            >
+              Transform Your Career With <br />
+              <motion.span 
+                className="text-gradient-primary inline-block"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              >
+                Real-Time IT Skills
+              </motion.span>
+            </motion.h1>
+          </div>
 
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
+            initial={{ opacity: 0, y: 20, filter: "blur(10px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.7, delay: 0.3 }}
             className="mt-6 max-w-2xl mx-auto text-base sm:text-lg text-muted-foreground"
           >
             RKS Tech Solutions provides internship projects, IT training, and freelance
@@ -169,29 +378,34 @@ function HomePage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.3 }}
+            transition={{ duration: 0.7, delay: 0.4 }}
             className="mt-8 flex flex-wrap justify-center gap-3"
           >
-            <Button asChild size="lg" className="bg-gradient-primary shadow-glow hover:opacity-95">
+            <MagneticButton asChild size="lg" className="bg-gradient-primary shadow-glow hover:opacity-95 animate-glow-pulse">
               <Link to="/courses">Explore Courses <ArrowRight className="ml-1 w-4 h-4" /></Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="glass border-white/20 hover:bg-white/10">
+            </MagneticButton>
+            <MagneticButton asChild size="lg" variant="outline" className="glass border-white/20 hover:bg-white/10">
               <Link to="/projects">Get Internship Project</Link>
-            </Button>
-            <Button asChild size="lg" variant="ghost">
+            </MagneticButton>
+            <MagneticButton asChild size="lg" variant="ghost">
               <Link to="/contact">Contact Us</Link>
-            </Button>
+            </MagneticButton>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.8 }}
+            transition={{ delay: 1 }}
             className="mt-16 flex justify-center"
           >
-            <ChevronDown className="w-6 h-6 text-muted-foreground animate-bounce" />
+            <motion.div
+              animate={{ y: [0, 10, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <ChevronDown className="w-6 h-6 text-muted-foreground" />
+            </motion.div>
           </motion.div>
-        </div>
+        </motion.div>
       </section>
 
       {/* SERVICES */}
@@ -202,46 +416,60 @@ function HomePage() {
             title="Services Built For Real Outcomes"
             subtitle="From your first line of code to your first paycheck — we've got every step covered."
           />
-          <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <motion.div 
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+          >
             {services.map((s, i) => (
               <motion.div
                 key={s.title}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.05 }}
+                variants={fadeInUp}
               >
-                <Card className="glass gradient-border hover-lift p-6 h-full bg-transparent border-0">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-primary grid place-items-center shadow-glow mb-4">
-                    <s.icon className="w-6 h-6 text-primary-foreground" />
-                  </div>
-                  <h3 className="font-semibold text-lg">{s.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
-                </Card>
+                <SpotlightCard className="group h-full">
+                  <Card className="glass gradient-border p-6 h-full bg-transparent border-0 card-tilt">
+                    <motion.div 
+                      className="w-12 h-12 rounded-xl bg-gradient-primary grid place-items-center shadow-glow mb-4"
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    >
+                      <s.icon className="w-6 h-6 text-primary-foreground icon-hover-pulse" />
+                    </motion.div>
+                    <h3 className="font-semibold text-lg underline-reveal">{s.title}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
+                  </Card>
+                </SpotlightCard>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* TECH STACK */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8">
+      <section className="py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <div className="mx-auto max-w-7xl">
           <SectionHeading eyebrow="Our Stack" title="Technologies We Master" />
-          <div className="mt-10 flex flex-wrap justify-center gap-3">
+          <motion.div 
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            className="mt-10 flex flex-wrap justify-center gap-3"
+          >
             {techStack.map((t, i) => (
               <motion.div
                 key={t}
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.04 }}
-                className="glass px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/20 hover:scale-105 transition-smooth cursor-default"
+                variants={scaleIn}
+                whileHover={{ scale: 1.1, y: -5 }}
+                whileTap={{ scale: 0.95 }}
+                className="glass px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/20 transition-smooth cursor-default"
               >
                 {t}
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -253,62 +481,77 @@ function HomePage() {
             title="Projects That Get You Hired"
             subtitle="Production-grade, mentor-reviewed projects you can showcase with confidence."
           />
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <motion.div 
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
             {projects.map((p, i) => (
               <motion.div
                 key={p.title}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.07 }}
+                variants={fadeInUp}
               >
-                <Card className="glass gradient-border bg-transparent border-0 overflow-hidden hover-lift group">
-                  <div className="aspect-video bg-gradient-to-br from-primary/30 via-accent/20 to-background relative overflow-hidden">
+                <Card className="glass gradient-border bg-transparent border-0 overflow-hidden group card-tilt">
+                  <motion.div 
+                    className="aspect-video bg-gradient-to-br from-primary/30 via-accent/20 to-background relative overflow-hidden"
+                    whileHover={{ scale: 1.02 }}
+                    transition={{ duration: 0.4 }}
+                  >
                     <div className="absolute inset-0 grid-pattern opacity-50" />
                     <div className="absolute inset-0 grid place-items-center">
-                      <Code2 className="w-16 h-16 text-primary/60 group-hover:scale-110 transition-smooth" />
+                      <motion.div
+                        whileHover={{ scale: 1.2, rotate: 10 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                      >
+                        <Code2 className="w-16 h-16 text-primary/60" />
+                      </motion.div>
                     </div>
-                  </div>
+                  </motion.div>
                   <div className="p-6">
                     <h3 className="font-semibold text-lg">{p.title}</h3>
                     <p className="mt-2 text-sm text-muted-foreground">{p.desc}</p>
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {p.tech.map((t) => (
-                        <Badge key={t} variant="secondary" className="bg-white/5 hover:bg-primary/20">{t}</Badge>
+                        <Badge key={t} variant="secondary" className="bg-white/5 hover:bg-primary/20 transition-smooth">{t}</Badge>
                       ))}
                     </div>
                     <div className="mt-5 flex gap-2">
-                      <Button size="sm" className="bg-gradient-primary flex-1">Live Demo</Button>
-                      <Button size="sm" variant="outline" className="glass border-white/20">GitHub</Button>
+                      <MagneticButton size="sm" className="bg-gradient-primary flex-1">Live Demo</MagneticButton>
+                      <MagneticButton size="sm" variant="outline" className="glass border-white/20">GitHub</MagneticButton>
                     </div>
                   </div>
                 </Card>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* STATS */}
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <Card className="glass-strong gradient-border bg-transparent border-0 p-10 sm:p-14 shadow-elegant">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-              {stats.map((s, i) => (
-                <motion.div
-                  key={s.l}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="text-center"
-                >
-                  <div className="text-4xl sm:text-5xl font-bold text-gradient-primary">{s.n}</div>
-                  <div className="mt-2 text-sm text-muted-foreground">{s.l}</div>
-                </motion.div>
-              ))}
-            </div>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <Card className="glass-strong gradient-border bg-transparent border-0 p-10 sm:p-14 shadow-elegant overflow-hidden relative">
+              <motion.div 
+                className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-primary/5"
+                animate={{ x: ["-100%", "100%"] }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              />
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 relative">
+                <AnimatedStat value={1200} suffix="+" label="Students Trained" />
+                <AnimatedStat value={450} suffix="+" label="Projects Delivered" />
+                <AnimatedStat value={98} suffix="%" label="Placement Assistance" />
+                <AnimatedStat value={24} suffix="/7" label="Mentor Support" />
+              </div>
+            </Card>
+          </motion.div>
         </div>
       </section>
 
@@ -316,26 +559,41 @@ function HomePage() {
       <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <SectionHeading eyebrow="Student Voices" title="Loved By Learners" />
-          <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <motion.div 
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6"
+          >
             {testimonials.map((t, i) => (
               <motion.div
                 key={t.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
+                variants={fadeInUp}
               >
-                <Card className="glass gradient-border bg-transparent border-0 p-6 h-full hover-lift">
+                <Card className="glass gradient-border bg-transparent border-0 p-6 h-full card-tilt group">
                   <div className="flex gap-1">
                     {Array.from({ length: t.rating }).map((_, j) => (
-                      <Star key={j} className="w-4 h-4 fill-primary text-primary" />
+                      <motion.div
+                        key={j}
+                        initial={{ opacity: 0, scale: 0 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.3 + j * 0.1 }}
+                      >
+                        <Star className="w-4 h-4 fill-primary text-primary" />
+                      </motion.div>
                     ))}
                   </div>
-                  <p className="mt-4 text-sm leading-relaxed">"{t.quote}"</p>
+                  <p className="mt-4 text-sm leading-relaxed">&quot;{t.quote}&quot;</p>
                   <div className="mt-6 flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-gradient-primary grid place-items-center font-semibold">
+                    <motion.div 
+                      className="w-11 h-11 rounded-full bg-gradient-primary grid place-items-center font-semibold"
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    >
                       {t.name.charAt(0)}
-                    </div>
+                    </motion.div>
                     <div>
                       <div className="font-semibold text-sm">{t.name}</div>
                       <div className="text-xs text-muted-foreground">{t.course}</div>
@@ -344,7 +602,7 @@ function HomePage() {
                 </Card>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -357,20 +615,27 @@ function HomePage() {
               title="Our Students Are Thriving" 
               subtitle="Real placements, real packages, real careers launched."
             />
-            <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
-              {featuredPlacements.map((placement, i) => (
+            <motion.div 
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-50px" }}
+              className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6"
+            >
+              {featuredPlacements.map((placement) => (
                 <motion.div
                   key={placement.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  variants={fadeInUp}
                 >
-                  <Card className="glass gradient-border bg-transparent border-0 p-6 h-full hover-lift group">
+                  <Card className="glass gradient-border bg-transparent border-0 p-6 h-full card-tilt group">
                     <div className="flex items-start justify-between mb-4">
-                      <div className="w-14 h-14 rounded-full bg-gradient-primary grid place-items-center font-bold text-lg">
+                      <motion.div 
+                        className="w-14 h-14 rounded-full bg-gradient-primary grid place-items-center font-bold text-lg"
+                        whileHover={{ scale: 1.1, rotate: 5 }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                      >
                         {placement.studentName.charAt(0)}
-                      </div>
+                      </motion.div>
                       <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
                         <Award className="w-3 h-3 mr-1" />
                         Featured
@@ -381,12 +646,18 @@ function HomePage() {
                       {placement.position} at {placement.companyName}
                     </p>
                     {placement.package && (
-                      <div className="mt-3 flex items-center gap-2">
+                      <motion.div 
+                        className="mt-3 flex items-center gap-2"
+                        initial={{ opacity: 0, x: -10 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.3 }}
+                      >
                         <TrendingUp className="w-4 h-4 text-primary" />
                         <span className="font-semibold text-primary">
                           ₹{placement.package.toLocaleString()}
                         </span>
-                      </div>
+                      </motion.div>
                     )}
                     <p className="mt-4 text-sm text-muted-foreground line-clamp-3">
                       {placement.testimonial}
@@ -396,7 +667,7 @@ function HomePage() {
                         {placement.course}
                       </Badge>
                     )}
-                    <Button 
+                    <MagneticButton 
                       asChild 
                       variant="ghost" 
                       size="sm" 
@@ -405,18 +676,23 @@ function HomePage() {
                       <Link to={`/placements/${placement.slug}`}>
                         Read Full Story <ArrowRight className="w-3 h-3 ml-1" />
                       </Link>
-                    </Button>
+                    </MagneticButton>
                   </Card>
                 </motion.div>
               ))}
-            </div>
-            <div className="mt-10 text-center">
-              <Button asChild size="lg" variant="outline" className="glass border-white/20">
+            </motion.div>
+            <motion.div 
+              className="mt-10 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <MagneticButton asChild size="lg" variant="outline" className="glass border-white/20">
                 <Link to="/placements">
                   View All Success Stories <ArrowRight className="w-4 h-4 ml-2" />
                 </Link>
-              </Button>
-            </div>
+              </MagneticButton>
+            </motion.div>
           </div>
         </section>
       )}
@@ -430,19 +706,26 @@ function HomePage() {
               title="Experts Who Guide You" 
               subtitle="Industry professionals dedicated to your success."
             />
-            <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredTeam.slice(0, 3).map((member, i) => (
+            <motion.div 
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-50px" }}
+              className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {featuredTeam.slice(0, 3).map((member) => (
                 <motion.div
                   key={member.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  variants={fadeInUp}
                 >
-                  <Card className="glass gradient-border bg-transparent border-0 p-6 text-center hover-lift group">
-                    <div className="w-24 h-24 mx-auto rounded-full bg-gradient-primary grid place-items-center font-bold text-3xl mb-4 group-hover:scale-110 transition-smooth">
+                  <Card className="glass gradient-border bg-transparent border-0 p-6 text-center card-tilt group">
+                    <motion.div 
+                      className="w-24 h-24 mx-auto rounded-full bg-gradient-primary grid place-items-center font-bold text-3xl mb-4"
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    >
                       {member.name.charAt(0)}
-                    </div>
+                    </motion.div>
                     <h3 className="font-semibold text-lg">{member.name}</h3>
                     <p className="text-sm text-primary mt-1">{member.role}</p>
                     {member.experience && (
@@ -462,40 +745,46 @@ function HomePage() {
                     )}
                     <div className="mt-4 flex justify-center gap-2">
                       {member.linkedin && (
-                        <a 
+                        <motion.a 
                           href={member.linkedin} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="w-8 h-8 rounded-full glass grid place-items-center hover:bg-primary/20 transition-smooth"
+                          whileHover={{ scale: 1.15, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
                         >
                           <Linkedin className="w-4 h-4" />
-                        </a>
+                        </motion.a>
                       )}
                       {member.github && (
-                        <a 
+                        <motion.a 
                           href={member.github} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="w-8 h-8 rounded-full glass grid place-items-center hover:bg-primary/20 transition-smooth"
+                          whileHover={{ scale: 1.15, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
                         >
                           <Github className="w-4 h-4" />
-                        </a>
+                        </motion.a>
                       )}
                       {member.twitter && (
-                        <a 
+                        <motion.a 
                           href={member.twitter} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="w-8 h-8 rounded-full glass grid place-items-center hover:bg-primary/20 transition-smooth"
+                          whileHover={{ scale: 1.15, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
                         >
                           <Twitter className="w-4 h-4" />
-                        </a>
+                        </motion.a>
                       )}
                     </div>
                   </Card>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
       )}
@@ -509,22 +798,34 @@ function HomePage() {
               title="Latest Insights & Updates" 
               subtitle="Tips, tutorials, and industry insights to keep you ahead."
             />
-            <div className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6">
-              {latestBlogs.map((blog, i) => (
+            <motion.div 
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-50px" }}
+              className="mt-14 grid grid-cols-1 md:grid-cols-3 gap-6"
+            >
+              {latestBlogs.map((blog) => (
                 <motion.div
                   key={blog.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  variants={fadeInUp}
                 >
-                  <Card className="glass gradient-border bg-transparent border-0 overflow-hidden hover-lift group h-full flex flex-col">
-                    <div className="aspect-video bg-gradient-to-br from-primary/30 via-accent/20 to-background relative overflow-hidden">
+                  <Card className="glass gradient-border bg-transparent border-0 overflow-hidden group h-full flex flex-col card-tilt">
+                    <motion.div 
+                      className="aspect-video bg-gradient-to-br from-primary/30 via-accent/20 to-background relative overflow-hidden"
+                      whileHover={{ scale: 1.02 }}
+                      transition={{ duration: 0.4 }}
+                    >
                       <div className="absolute inset-0 grid-pattern opacity-50" />
                       <div className="absolute inset-0 grid place-items-center">
-                        <FileText className="w-16 h-16 text-primary/60 group-hover:scale-110 transition-smooth" />
+                        <motion.div
+                          whileHover={{ scale: 1.2, rotate: 5 }}
+                          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        >
+                          <FileText className="w-16 h-16 text-primary/60" />
+                        </motion.div>
                       </div>
-                    </div>
+                    </motion.div>
                     <div className="p-6 flex-1 flex flex-col">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
                         <Badge variant="secondary" className="bg-white/5">
@@ -553,7 +854,7 @@ function HomePage() {
                           asChild 
                           variant="ghost" 
                           size="sm"
-                          className="group-hover:text-primary"
+                          className="group-hover:text-primary transition-smooth"
                         >
                           <Link to={`/blog/${blog.slug}`}>
                             Read More <ArrowRight className="w-3 h-3 ml-1" />
@@ -564,14 +865,19 @@ function HomePage() {
                   </Card>
                 </motion.div>
               ))}
-            </div>
-            <div className="mt-10 text-center">
-              <Button asChild size="lg" variant="outline" className="glass border-white/20">
+            </motion.div>
+            <motion.div 
+              className="mt-10 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+            >
+              <MagneticButton asChild size="lg" variant="outline" className="glass border-white/20">
                 <Link to="/blog">
                   View All Articles <ArrowRight className="w-4 h-4 ml-2" />
                 </Link>
-              </Button>
-            </div>
+              </MagneticButton>
+            </motion.div>
           </div>
         </section>
       )}
@@ -584,40 +890,56 @@ function HomePage() {
             title="Plans That Grow With You"
             subtitle="Simple, transparent pricing. Cancel anytime."
           />
-          <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {plans.map((p, i) => (
+          <motion.div 
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+          >
+            {plans.map((p) => (
               <motion.div
                 key={p.name}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
+                variants={fadeInUp}
               >
-                <Card className={`p-6 h-full bg-transparent border-0 hover-lift relative ${
-                  p.highlight ? "glass-strong gradient-border shadow-glow" : "glass gradient-border"
+                <Card className={`p-6 h-full bg-transparent border-0 relative card-tilt ${
+                  p.highlight ? "glass-strong gradient-border shadow-glow animate-glow-pulse" : "glass gradient-border"
                 }`}>
                   {p.highlight && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-primary text-primary-foreground text-xs px-3 py-1 rounded-full font-semibold">
+                    <motion.div 
+                      className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-primary text-primary-foreground text-xs px-3 py-1 rounded-full font-semibold"
+                      initial={{ opacity: 0, y: 10 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: 0.3 }}
+                    >
                       Most Popular
-                    </div>
+                    </motion.div>
                   )}
                   <h3 className="font-semibold">{p.name}</h3>
                   <div className="mt-3 text-3xl font-bold text-gradient">{p.price}</div>
                   <ul className="mt-5 space-y-2.5">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm">
+                    {p.features.map((f, j) => (
+                      <motion.li 
+                        key={f} 
+                        className="flex items-start gap-2 text-sm"
+                        initial={{ opacity: 0, x: -10 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ delay: 0.1 + j * 0.05 }}
+                      >
                         <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <span>{f}</span>
-                      </li>
+                      </motion.li>
                     ))}
                   </ul>
-                  <Button className={`mt-6 w-full ${p.highlight ? "bg-gradient-primary" : "glass"}`}>
+                  <MagneticButton className={`mt-6 w-full ${p.highlight ? "bg-gradient-primary" : "glass"}`}>
                     Get Started
-                  </Button>
+                  </MagneticButton>
                 </Card>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -625,32 +947,72 @@ function HomePage() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl">
           <SectionHeading eyebrow="FAQs" title="Questions, Answered" />
-          <Accordion type="single" collapsible className="mt-10 space-y-3">
-            {faqs.map((f, i) => (
-              <AccordionItem key={i} value={`item-${i}`} className="glass gradient-border rounded-xl px-5 border-0">
-                <AccordionTrigger className="text-left hover:no-underline">{f.q}</AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+          >
+            <Accordion type="single" collapsible className="mt-10 space-y-3">
+              {faqs.map((f, i) => (
+                <motion.div key={i} variants={fadeInUp}>
+                  <AccordionItem value={`item-${i}`} className="glass gradient-border rounded-xl px-5 border-0">
+                    <AccordionTrigger className="text-left hover:no-underline">{f.q}</AccordionTrigger>
+                    <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
+                  </AccordionItem>
+                </motion.div>
+              ))}
+            </Accordion>
+          </motion.div>
         </div>
       </section>
 
       {/* CTA */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-5xl">
-          <Card className="glass-strong gradient-border bg-transparent border-0 p-10 sm:p-16 text-center shadow-elegant relative overflow-hidden">
-            <div className="absolute inset-0 -z-10 bg-gradient-hero opacity-60" />
-            <h2 className="text-3xl sm:text-5xl font-bold text-gradient">Ready to build your future?</h2>
-            <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-              Join hundreds of students shipping real projects and landing real jobs.
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Button size="lg" className="bg-gradient-primary shadow-glow">Enroll Now</Button>
-              <Button size="lg" variant="outline" className="glass border-white/20">WhatsApp Us</Button>
-              <Button size="lg" variant="ghost">Schedule a Call</Button>
-            </div>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <Card className="glass-strong gradient-border bg-transparent border-0 p-10 sm:p-16 text-center shadow-elegant relative overflow-hidden">
+              <motion.div 
+                className="absolute inset-0 -z-10 bg-gradient-hero opacity-60" 
+                animate={{ 
+                  background: [
+                    "radial-gradient(ellipse at 20% 10%, oklch(0.55 0.22 270 / 0.45), transparent 60%)",
+                    "radial-gradient(ellipse at 80% 90%, oklch(0.62 0.24 295 / 0.45), transparent 60%)",
+                    "radial-gradient(ellipse at 20% 10%, oklch(0.55 0.22 270 / 0.45), transparent 60%)"
+                  ]
+                }}
+                transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              />
+              <TextReveal>
+                <h2 className="text-3xl sm:text-5xl font-bold text-gradient">Ready to build your future?</h2>
+              </TextReveal>
+              <motion.p 
+                className="mt-4 text-muted-foreground max-w-xl mx-auto"
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.3 }}
+              >
+                Join hundreds of students shipping real projects and landing real jobs.
+              </motion.p>
+              <motion.div 
+                className="mt-8 flex flex-wrap justify-center gap-3"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.4 }}
+              >
+                <MagneticButton size="lg" className="bg-gradient-primary shadow-glow animate-glow-pulse">Enroll Now</MagneticButton>
+                <MagneticButton size="lg" variant="outline" className="glass border-white/20">WhatsApp Us</MagneticButton>
+                <MagneticButton size="lg" variant="ghost">Schedule a Call</MagneticButton>
+              </motion.div>
+            </Card>
+          </motion.div>
         </div>
       </section>
     </>
